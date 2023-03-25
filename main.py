@@ -67,3 +67,5 @@ def main():
 
 	obj.close()
 
+	print(filename + ' is made and saved!')
+
