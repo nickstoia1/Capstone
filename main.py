@@ -1,16 +1,20 @@
-import wave, struct, math, random
 
 # !/usr/bin/python
-
+import OPi.GPIO as GPIO
+import wave, struct, math
 import spidev
 import time
 import os
 
 # Open SPI bus
 spi = spidev.SpiDev()
-spi.open(0, 0)
-spi.max_speed_hz = 1000000
-
+spi.open(1, 0)
+spi.max_speed_hz = 10000000
+# Define sensor channels
+audio_pos_channel = 0
+# Setup GPIO Pins
+GPIO.setmode(GPIO.SUNXI)
+GPIO.setup('PL10', GPIO.IN)
 
 # Function to read SPI data from MCP3008 chip
 # Channel must be an integer 0-7
@@ -19,53 +23,39 @@ def ReadChannel(channel):
 	data = ((adc[1] & 3) << 8) + adc[2]
 	return data
 
-
-# Function to convert data to voltage level,
-# rounded to specified number of decimal places.
-def ConvertVolts(data, places):
-	volts = (data * 3.3) / float(1023)
-	volts = round(volts, places)
-	return volts
-
-
 # TODO
 def get_time():
-	return 'sound'
-
-
-# TODO
-def read_squelch():
-	return 1
+	return '/mnt/' + 'date time'
 
 
 def main():
-	# Define sensor channels
-	audio_pos_channel = 0
-	audio_neg_channel = 1
+	while True:
+		if GPIO.input('PL10'):
+			# get the file name which is the time and date
+			filename = get_time() + ".wav"
+			# setup for data reading
+			datalist_audio = []
+			sample_rate = 20000.0  # hertz
+			obj = wave.open(filename, 'w')
+			obj.setnchannels(1)  # mono
+			obj.setsampwidth(2)
+			obj.setframerate(sample_rate)
 
-	filename = get_time() + ".wav"
+			# read until squelch is unbroken
+			while GPIO.input('PL10'):
+				audio_pos = ReadChannel(audio_pos_channel) * 10
+				datalist_audio.append(audio_pos)
 
-	datalist_pos = []
-	sample_rate = 200000.0  # hertz
-	obj = wave.open(filename, 'w')
-	obj.setnchannels(1)  # mono
-	obj.setsampwidth(2)
-	obj.setframerate(sample_rate)
+			# write data to wave file
+			for number in datalist_audio:
+				data = struct.pack('<h', number)
+				obj.writeframesraw(data)
 
-	squelch = 1
-	while squelch:
-		# read until squelch is unbroken
-		for i in range(2000000):
-			audio_pos = ReadChannel(audio_pos_channel)
-			datalist_pos.append(audio_pos)
+			obj.close()
 
-		squelch = 0
+			print(filename + ' is made and saved!')
 
-	for number in datalist_pos:
-		data = struct.pack('<h', number)
-		obj.writeframesraw(data)
 
-	obj.close()
-
-	print(filename + ' is made and saved!')
+if __name__ == "__main__":
+	main()
 
