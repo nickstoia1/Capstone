@@ -1,0 +1,9 @@
+verbosity=1
+bootlogo=false
+console=both
+disp_mode=1920x1080p60
+overlay_prefix=sun50i-h6
+rootdev=UUID=ebb364c1-a62b-49ba-ad5a-ab3f81809036
+rootfstype=ext4
+overlays=spi-spidev1 i2c0
+usbstoragequirks=0x2537:0x1066:u,0x2537:0x1068:u
