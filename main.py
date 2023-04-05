@@ -5,6 +5,10 @@ import wave, struct, math
 import spidev
 import time
 import os
+from datetime import datetime
+# datetime object containing current date and time
+now = datetime.now()
+
 
 # Open SPI bus
 spi = spidev.SpiDev()
@@ -18,18 +22,22 @@ GPIO.setup('PL10', GPIO.IN)
 
 # Function to read SPI data from MCP3008 chip
 # Channel must be an integer 0-7
-def ReadChannel(channel):
+def read_channel(channel):
 	adc = spi.xfer2([1, (8 + channel) << 4, 0])
 	data = ((adc[1] & 3) << 8) + adc[2]
 	return data
 
-# TODO
+# Gets the current time and adds it to mnt path as string
 def get_time():
-	return '/mnt/' + 'date time'
+	# datetime object containing current date and time
+	now = datetime.now()
+	dt_string = now.strftime("%d/%m/%Y_%H:%M:%S")
+	return '/mnt/' + dt_string
 
 
 def main():
 	while True:
+		# Wait until Squelch Breaks
 		if GPIO.input('PL10'):
 			# get the file name which is the time and date
 			filename = get_time() + ".wav"
@@ -43,7 +51,7 @@ def main():
 
 			# read until squelch is unbroken
 			while GPIO.input('PL10'):
-				audio_pos = ReadChannel(audio_pos_channel) * 10
+				audio_pos = read_channel(audio_pos_channel) * 10
 				datalist_audio.append(audio_pos)
 
 			# write data to wave file
