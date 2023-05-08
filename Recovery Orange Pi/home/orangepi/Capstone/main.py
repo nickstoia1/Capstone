@@ -1,75 +1,75 @@
-
-
 # !/usr/bin/python
+import OPi.GPIO as GPIO
 import wave, struct, math
 import spidev
 import time
 import os
+from pydub import AudioSegment
+from datetime import datetime
+# datetime object containing current date and time
+now = datetime.now()
+
 
 # Open SPI bus
 spi = spidev.SpiDev()
 spi.open(1, 0)
 spi.max_speed_hz = 10000000
-
+# Define sensor channels
+audio_pos_channel = 0
+# Setup GPIO Pins
+GPIO.cleanup()
+GPIO.setmode(GPIO.SUNXI)
+GPIO.setup('PD15', GPIO.IN)
 
 # Function to read SPI data from MCP3008 chip
 # Channel must be an integer 0-7
-def ReadChannel(channel):
-	adc = spi.xfer2([1, (8 + channel) << 4, 0])
-	data = ((adc[1] & 3) << 8) + adc[2]
-	return data
+def read_channel(channel):
+        adc = spi.xfer2([1, (8 + channel) << 4, 0])
+        data = ((adc[1] & 3) << 8) + adc[2]
+        return data
 
-
-# Function to convert data to voltage level,
-# rounded to specified number of decimal places.
-def ConvertVolts(data, places):
-	volts = (data * 3.3) / float(1023)
-	volts = round(volts, places)
-	return volts
-
-
-# TODO
+# Gets the current time and adds it to mnt path as string
 def get_time():
-	return '/mnt/' +'sound'
-
-
-# TODO
-def read_squelch():
-	return 1
+        # datetime object containing current date and time
+        now = datetime.now()
+        dt_string = now.strftime("%m-%d-%Y_%H.%M.%S")
+        return '/mnt/' + dt_string
 
 
 def main():
-	# Define sensor channels
-	audio_pos_channel = 0
-	audio_neg_channel = 1
+        while True:
+                # Wait until Squelch Breaks
+                if GPIO.input('PD15'):
+                        # get the file name which is the time and date
+                        filename = get_time() + ".wav"
+                        # setup for data reading
+                        datalist_audio = []
+                        obj = wave.open(filename, 'w')
+                        obj.setnchannels(1)  # mono
+                        obj.setsampwidth(2)
+                        start = time.perf_counter()
+                        # read until squelch is unbroken
+                        while GPIO.input('PD15'):
+                                audio_pos = (read_channel(audio_pos_channel)-511)*60
+                                datalist_audio.append(audio_pos)
 
-	filename = get_time() + ".wav"
 
-	datalist_pos = []
-	sample_rate = 20000.0  # hertz
-	obj = wave.open(filename, 'w')
-	obj.setnchannels(1)  # mono
-	obj.setsampwidth(2)
-	obj.setframerate(sample_rate)
+                        final =  time.perf_counter() - start
+                        print(f"final time is {final:0.4f}")
+                        sample_rate = len(datalist_audio)/final
+                        obj.setframerate(sample_rate)
+                        # write data to wave file
+                        for number in datalist_audio:
+                                data = struct.pack('<h', number)
+                                obj.writeframesraw(data)
 
-	squelch = 1
-	while squelch:
-		# read until squelch is unbroken
-		for i in range(200000):
-			audio_pos = ReadChannel(audio_pos_channel) * 10
-			datalist_pos.append(audio_pos)
-			print(i)
-		squelch = 0
+                        obj.close()
+                        audio = AudioSegment.from_wav(filename)
+                        audio = audio+10
+                        audio.export(filename, "wav")
 
-	for number in datalist_pos:
-		print(number)
-		data = struct.pack('<h', number)
-		obj.writeframesraw(data)
-
-	obj.close()
-
-	print(filename + ' is made and saved!')
+                        print(filename + ' is made and saved!')
 
 
 if __name__ == "__main__":
-    main()
+        main()
