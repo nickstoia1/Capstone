@@ -59,6 +59,3 @@ while True:
   # Print out results
   print("--------------------------------------------")
   print("Temp : {} ({}V) {} deg C".format(temp_level,temp_volts,temp))
- 
-  # Wait before repeating loop
-  
